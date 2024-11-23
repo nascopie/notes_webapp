@@ -99,6 +99,61 @@ If not installed, use the following commands to install Nginx:
   ```
 - The default port is 8080. You can now access the application at `http://localhost:8080`.
 
+### 5. Deploying Using systemd
+
+If you want to keep your frontend running as a service, you can use `systemd` to manage it.
+
+**Step 1: Create a systemd Service File**
+
+Create a new service file for your frontend using the following command:
+```sh
+sudo nano /etc/systemd/system/frontend.service
+```
+
+Add the following configuration to the file:
+```ini
+[Unit]
+Description=Notes Management Frontend Service
+After=network.target
+
+[Service]
+User=<your_username>
+WorkingDirectory=/path/to/your/project-root
+ExecStart=npx http-server -p 8080
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+```
+- Replace `<your_username>` with your Linux username.
+- Replace `/path/to/your/project-root` with the absolute path to your project directory.
+
+**Step 2: Reload systemd Daemon**
+
+Reload the `systemd` daemon to apply the new service:
+```sh
+sudo systemctl daemon-reload
+```
+
+**Step 3: Start and Enable the Frontend Service**
+
+Start the service using the following command:
+```sh
+sudo systemctl start frontend
+```
+
+To make sure the service starts on boot, enable it:
+```sh
+sudo systemctl enable frontend
+```
+
+**Step 4: Check the Status of the Service**
+
+To check if the frontend is running properly, use:
+```sh
+sudo systemctl status frontend
+```
+
 ## Important Considerations for Deployment
 
 1. **CORS (Cross-Origin Resource Sharing)**
