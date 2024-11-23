@@ -38,6 +38,7 @@ class UserDB(Base):
     email = Column(String, unique=True, index=True)
     hashed_password = Column(String)
     role = Column(String)
+    is_active = Column(Boolean, default=True)
 
 class NoteDB(Base):
     __tablename__ = "notes"
@@ -65,12 +66,16 @@ class User(BaseModel):
     email: str
     hashed_password: str
     role: Role
+    is_active: bool
 
 class UserCreate(BaseModel):
     username: str
     full_name: str
     email: str
     password: str
+    role: Role
+
+class UserUpdateRole(BaseModel):
     role: Role
 
 class NoteCreate(BaseModel):
@@ -133,7 +138,7 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
                 detail="Invalid authentication credentials",
             )
         user = db.query(UserDB).filter(UserDB.username == username).first()
-        if user is None:
+        if user is None or not user.is_active:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid authentication credentials",
@@ -282,3 +287,57 @@ def get_logs(current_user: UserDB = Depends(get_current_user), db: Session = Dep
         raise HTTPException(status_code=403, detail="Not enough permissions")
     logs = db.query(LogDB).all()
     return logs
+
+@app.put("/users/{user_id}/deactivate", response_model=User)
+def deactivate_user(user_id: int, current_user: UserDB = Depends(get_current_user), db: Session = Depends(get_db)):
+    if current_user.role != Role.ADMIN.value:
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+    user = db.query(UserDB).filter(UserDB.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    user.is_active = False
+    db.commit()
+    db.refresh(user)
+    return user
+
+@app.put("/users/{user_id}/reset_password", response_model=User)
+def reset_password(user_id: int, new_password: str, current_user: UserDB = Depends(get_current_user), db: Session = Depends(get_db)):
+    if current_user.role != Role.ADMIN.value:
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+    user = db.query(UserDB).filter(UserDB.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    user.hashed_password = get_password_hash(new_password)
+    db.commit()
+    db.refresh(user)
+    return user
+
+@app.put("/users/{user_id}/update_role", response_model=User)
+def update_user_role(user_id: int, user_update_role: UserUpdateRole, current_user: UserDB = Depends(get_current_user), db: Session = Depends(get_db)):
+    if current_user.role != Role.ADMIN.value:
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+    user = db.query(UserDB).filter(UserDB.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    user.role = user_update_role.role.value
+    db.commit()
+    db.refresh(user)
+    return user
+
+@app.get("/users", response_model=List[User])
+def get_all_users(current_user: UserDB = Depends(get_current_user), db: Session = Depends(get_db)):
+    if current_user.role != Role.ADMIN.value:
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+    users = db.query(UserDB).all()
+    return users
+
+@app.delete("/users/{user_id}", response_model=User)
+def delete_user(user_id: int, current_user: UserDB = Depends(get_current_user), db: Session = Depends(get_db)):
+    if current_user.role != Role.ADMIN.value:
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+    user = db.query(UserDB).filter(UserDB.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    db.delete(user)
+    db.commit()
+    return user
