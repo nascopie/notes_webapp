@@ -28,18 +28,65 @@ This guide will help you set up, deploy, and secure the Notes Management API bui
 1. Ensure Python 3 and `pip` are installed.
 2. Run the server using `uvicorn`:
    ```sh
-   uvicorn notes_API:app --host 0.0.0.0 --port 8000 --reload
+   uvicorn main:app --host 0.0.0.0 --port 8000 --reload
    ```
    - Replace `main` with the name of your Python file if different.
    - The `--reload` flag is useful for development; omit it for production.
+
 3. To keep the server running continuously, consider using a process manager like `systemd` or `supervisord`.
+
+#### Using systemd to Deploy the Server
+
+1. Create a `systemd` service file to manage the server. Open a terminal and create a new file:
+   ```sh
+   sudo nano /etc/systemd/system/notes-api.service
+   ```
+
+2. Add the following configuration to the file:
+   ```ini
+   [Unit]
+   Description=Notes Management API
+   After=network.target
+
+   [Service]
+   User=<your_username>
+   Group=www-data
+   WorkingDirectory=/path/to/your/repository
+   ExecStart=/path/to/your/venv/bin/uvicorn main:app --host 0.0.0.0 --port 8000
+
+   [Install]
+   WantedBy=multi-user.target
+   ```
+   - Replace `<your_username>` with your Linux username.
+   - Replace `/path/to/your/repository` with the absolute path to the project directory.
+   - Replace `/path/to/your/venv/bin/uvicorn` with the path to the `uvicorn` executable inside your virtual environment.
+
+3. Reload the `systemd` daemon to recognize the new service:
+   ```sh
+   sudo systemctl daemon-reload
+   ```
+
+4. Start the Notes Management API service:
+   ```sh
+   sudo systemctl start notes-api
+   ```
+
+5. To enable the service to start on boot:
+   ```sh
+   sudo systemctl enable notes-api
+   ```
+
+6. Check the status of the service:
+   ```sh
+   sudo systemctl status notes-api
+   ```
 
 ### On Windows
 
 1. Open PowerShell or Command Prompt.
 2. Run the server using `uvicorn`:
    ```cmd
-   uvicorn Notes_API:app --host 0.0.0.0 --port 8000 --reload
+   uvicorn main:app --host 0.0.0.0 --port 8000 --reload
    ```
    - Replace `main` with the name of your Python file if different.
 3. For long-term deployment, you can use tools like NSSM (Non-Sucking Service Manager) to run the server as a Windows service.
