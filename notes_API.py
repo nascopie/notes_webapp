@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
 from passlib.context import CryptContext
@@ -166,7 +167,20 @@ def log_activity(request: Request, response_status: int, db: Session, username: 
     db.add(log_entry)
     db.commit()
 
-app = FastAPI()
+app = FastAPI(title="Notes API", version="1.0.0",servers=[{"url": "http://localhost:8000","description": "Local server"}])
+
+# Add CORS middleware to allow frontend requests
+origins = [
+    "http://localhost:8080",  # Adjust as needed for deployment environment
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Routes
 @app.middleware("http")
@@ -288,11 +302,11 @@ def get_logs(current_user: UserDB = Depends(get_current_user), db: Session = Dep
     logs = db.query(LogDB).all()
     return logs
 
-@app.put("/users/{user_id}/deactivate", response_model=User)
-def deactivate_user(user_id: int, current_user: UserDB = Depends(get_current_user), db: Session = Depends(get_db)):
+@app.put("/users/{user_name}/deactivate", response_model=User)
+def deactivate_user(user_name, current_user: UserDB = Depends(get_current_user), db: Session = Depends(get_db)):
     if current_user.role != Role.ADMIN.value:
         raise HTTPException(status_code=403, detail="Not enough permissions")
-    user = db.query(UserDB).filter(UserDB.id == user_id).first()
+    user = db.query(UserDB).filter(UserDB.username == user_name).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     user.is_active = False
@@ -300,11 +314,11 @@ def deactivate_user(user_id: int, current_user: UserDB = Depends(get_current_use
     db.refresh(user)
     return user
 
-@app.put("/users/{user_id}/reset_password", response_model=User)
-def reset_password(user_id: int, new_password: str, current_user: UserDB = Depends(get_current_user), db: Session = Depends(get_db)):
+@app.put("/users/{user_name}/reset_password", response_model=User)
+def reset_password(user_name, new_password: str, current_user: UserDB = Depends(get_current_user), db: Session = Depends(get_db)):
     if current_user.role != Role.ADMIN.value:
         raise HTTPException(status_code=403, detail="Not enough permissions")
-    user = db.query(UserDB).filter(UserDB.id == user_id).first()
+    user = db.query(UserDB).filter(UserDB.username == user_name).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     user.hashed_password = get_password_hash(new_password)
@@ -312,11 +326,11 @@ def reset_password(user_id: int, new_password: str, current_user: UserDB = Depen
     db.refresh(user)
     return user
 
-@app.put("/users/{user_id}/update_role", response_model=User)
-def update_user_role(user_id: int, user_update_role: UserUpdateRole, current_user: UserDB = Depends(get_current_user), db: Session = Depends(get_db)):
+@app.put("/users/{user_name}/update_role", response_model=User)
+def update_user_role(user_name, user_update_role: UserUpdateRole, current_user: UserDB = Depends(get_current_user), db: Session = Depends(get_db)):
     if current_user.role != Role.ADMIN.value:
         raise HTTPException(status_code=403, detail="Not enough permissions")
-    user = db.query(UserDB).filter(UserDB.id == user_id).first()
+    user = db.query(UserDB).filter(UserDB.username == user_name).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     user.role = user_update_role.role.value
@@ -331,11 +345,11 @@ def get_all_users(current_user: UserDB = Depends(get_current_user), db: Session 
     users = db.query(UserDB).all()
     return users
 
-@app.delete("/users/{user_id}", response_model=User)
-def delete_user(user_id: int, current_user: UserDB = Depends(get_current_user), db: Session = Depends(get_db)):
+@app.delete("/users/{user_name}", response_model=User)
+def delete_user(user_name, current_user: UserDB = Depends(get_current_user), db: Session = Depends(get_db)):
     if current_user.role != Role.ADMIN.value:
         raise HTTPException(status_code=403, detail="Not enough permissions")
-    user = db.query(UserDB).filter(UserDB.id == user_id).first()
+    user = db.query(UserDB).filter(UserDB.username == user_name).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     db.delete(user)
